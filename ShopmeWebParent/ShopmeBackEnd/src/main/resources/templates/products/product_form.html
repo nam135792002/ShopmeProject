@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <head th:replace="fragments :: page_head(${pageTitle},'tag')" />
+    <link rel="stylesheet" th:href="@{/richtext/richtext.min.css}" />
+    <script th:src="@{/richtext/jquery.richtext.min.js}"></script>
+</head>
+<body>
+<div class="container-fluid">
+    <div th:replace="navigation :: menu"></div>
+
+    <div>
+        <h2>Manage Products | [[${pageTitle}]]</h2>
+    </div>
+
+    <form th:action="@{/products/save}" method="post"  th:object="${product}" enctype="multipart/form-data" onsubmit="return checkUnique(this)">
+        <input type="hidden" th:field="*{id}"/>
+        <input th:if="${product.category != null}" type="hidden" id="categoryId" th:value="${product.category.id}" />
+        <div>
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active"  data-toggle="tab" href="#overview" role="tab" >Overview</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"  data-toggle="tab" href="#description" role="tab" >Description</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"  data-toggle="tab" href="#images" role="tab" >Images</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"  data-toggle="tab" href="#details" role="tab" >Details</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"  data-toggle="tab" href="#shipping" role="tab" >Shipping</a>
+                </li>
+            </ul>
+
+            <!-- Tab panes -->
+            <div class="tab-content">
+                <div class="tab-pane active p-3" id="overview" role="tabpanel" >
+                    <div th:replace="products/product_overview::content"></div>
+                </div>
+                <div class="tab-pane" id="description" role="tabpanel" >
+                    <th:block th:if="${!#authorization.expression('hasAnyAuthority(''Admin'')') && !#authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <th:block th:if="${#authorization.expression('hasAuthority(''Salesperson'')')}">
+                            <div th:replace="products/product_description_read_only::content"></div>
+                        </th:block>
+                    </th:block>
+
+                    <th:block th:if="${#authorization.expression('hasAnyAuthority(''Admin'')') || #authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <div th:replace="products/product_description::content"></div>
+                    </th:block>
+                </div>
+
+                <div class="tab-pane" id="images" role="tabpanel" >
+                    <th:block th:if="${!#authorization.expression('hasAnyAuthority(''Admin'')') && !#authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <th:block th:if="${#authorization.expression('hasAuthority(''Salesperson'')')}">
+                            <div class="row">
+                                <div th:replace="products/product_images_read_only::content"></div>
+                            </div>
+                        </th:block>
+                    </th:block>
+
+                    <th:block th:if="${#authorization.expression('hasAnyAuthority(''Admin'')') || #authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <div th:replace="products/product_images::content"></div>
+                    </th:block>
+                </div>
+
+                <div class="tab-pane p-3" id="details" role="tabpanel" >
+                    <th:block th:if="${!#authorization.expression('hasAnyAuthority(''Admin'')') && !#authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <th:block th:if="${#authorization.expression('hasAuthority(''Salesperson'')')}">
+                            <div th:replace="products/product_detail_read_only::content"></div>
+                        </th:block>
+                    </th:block>
+
+                    <th:block th:if="${#authorization.expression('hasAnyAuthority(''Admin'')') || #authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <div th:replace="products/product_detail::content"></div>
+                        <div>
+                            <input type="button" class="btn btn-secondary" value="Add More Detail" onclick="addNextDetailSection()" />
+                        </div>
+                    </th:block>
+                </div>
+
+                <div class="tab-pane p-3" id="shipping" role="tabpanel" >
+                    <th:block th:if="${!#authorization.expression('hasAnyAuthority(''Admin'')') && !#authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <th:block th:if="${#authorization.expression('hasAuthority(''Salesperson'')')}">
+                            <div th:replace="products/product_shipping_read_only::content"></div>
+                        </th:block>
+                    </th:block>
+
+                    <th:block th:if="${#authorization.expression('hasAnyAuthority(''Admin'')') || #authorization.expression('hasAnyAuthority(''Editor'')')}">
+                        <div th:replace="products/product_shipping::content"></div>
+                    </th:block>
+                </div>
+
+            </div>
+        </div>
+        <div class="text-center">
+            <input type="submit" value="Save" class="btn btn-primary m-3" />
+            <input type="button" value="Cancel" class="btn btn-secondary" id="buttonCancel"/>
+        </div>
+    </form>
+
+    <div th:replace="modal_fragments::modal_dialog"></div>
+
+    <div th:replace="fragments :: footer"></div>
+</div>
+<script type="text/javascript">
+    modelURL = "[[@{/products}]]";
+    brandModuleURL = "[[@{/brands}]]";
+    defaultImageThumbnailImage = "[[@{/images/category.png}]]";
+    dropdownBrands = $("#brand");
+    dropdownCategories = $("#category");
+    $(document).ready(function (){
+        $("#shortDescription").richText();
+        $("#fullDescription").richText();
+        dropdownBrands.change(function (){
+            dropdownCategories.empty();
+            getCategories();
+        });
+        getCategoriesForNewForm();
+    });
+
+    function getCategoriesForNewForm(){
+        const catIdField = $("#categoryId");
+        let editMode = false;
+        if(catIdField.length){
+            editMode = true;
+        }
+        if(!editMode){
+            getCategories();
+        }
+    }
+
+    function getCategories(){
+        const brandId = dropdownBrands.val();
+        const url = brandModuleURL + "/" + brandId + "/categories";
+        $.get(url,function (responseJson){
+           $.each(responseJson,function (index,category){
+               $("<option>").val(category.id).text(category.name).appendTo(dropdownCategories);
+           })
+        });
+    }
+
+    function checkUnique(form){
+        const url = "[[@{/products/check_unique}]]";
+        const productName = $("#name").val();
+        const productId = $("#id").val();
+        const csrfValue = $("input[name='_csrf']").val();
+        const params = {id : productId , name: productName, _csrf: csrfValue};
+
+        $.post(url,params, function (response){
+            if(response === "OK"){
+                form.submit();
+            } else if(response === "Duplicate"){
+                showWarningModal("There is another product having the same name " + productName);
+            } else {
+                showErrorModal("Unknown response from server");
+            }
+        }).fail(function (){
+            showErrorModal("Could not connect to the server");
+        });
+        return false;
+    }
+</script>
+<script th:src="@{/js/common_form.js}"></script>
+<script th:src="@{/js/product_form.js}"></script>
+</body>
+</html>

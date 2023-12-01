@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments :: page_head('Home - Shopme Admin','none')" />
+<body>
+<div class="container-fluid">
+
+    <div th:replace="navigation :: menu"></div>
+
+    <div>
+        <h2>Shopme Control Panel</h2>
+        Welcome
+        <span th:text="${#authentication.principal.fullname}"></span>
+        &nbsp;
+        <span th:text="${#authentication.principal.authorities}"></span>
+    </div>
+
+    <div th:replace="fragments :: footer"></div>
+</div>
+</body>
+</html>
